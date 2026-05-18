@@ -234,14 +234,7 @@ Useful scripts:
 | `npm run clean`           | Remove build output and TypeScript build info.                   |
 | `npm run prepublishOnly`  | Run lint, format check, tests, and build before npm publishing.  |
 
-## Publishing
 
-The package publishes only `dist` and `README.md`. `npm publish` runs `prepublishOnly`, which validates linting, formatting, tests, and the production build first.
-
-```bash
-npm run prepublishOnly
-npm publish --access public
-```
 
 Before publishing, confirm the npm package name is the one you want. If publishing under a scope, update `name`, `repository`, `homepage`, and `bugs` in `package.json`.
 
