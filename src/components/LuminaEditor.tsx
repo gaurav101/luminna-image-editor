@@ -41,6 +41,8 @@ import type {
 
 const TABS = ["filters", "adjust", "transform", "effects"] as const;
 type Tab = (typeof TABS)[number];
+const DEFAULT_TOOLBAR_ACTIONS = ["undo", "execute", "exportJpg", "loadImage"] as const;
+export type LuminaEditorToolbarAction = (typeof DEFAULT_TOOLBAR_ACTIONS)[number];
 
 /**
  * Preset filter combos expressed as lumina chain operations.
@@ -65,6 +67,8 @@ interface FilterPreset {
   label: string;
   ops: FilterOperation[];
 }
+export type LuminaEditorFilterPreset = FilterPreset;
+export type LuminaEditorTab = Tab;
 
 const FILTER_PRESETS: FilterPreset[] = [
   { id: "none", label: "Original", ops: [] },
@@ -229,6 +233,9 @@ export interface LuminaEditorProps {
   minHeight?: CSSProperties["minHeight"];
   maxHeight?: CSSProperties["maxHeight"];
   panelWidth?: CSSProperties["width"];
+  tabs?: LuminaEditorTab[];
+  toolbarActions?: LuminaEditorToolbarAction[];
+  filterPresets?: LuminaEditorFilterPreset[];
 }
 
 function cx(...values: Array<string | false | null | undefined>): string {
@@ -363,6 +370,9 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
     minHeight,
     maxHeight,
     panelWidth = 290,
+    tabs = [...TABS],
+    toolbarActions = [...DEFAULT_TOOLBAR_ACTIONS],
+    filterPresets = FILTER_PRESETS,
   },
   ref,
 ) {
@@ -384,6 +394,25 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [previewTransform, setPreviewTransform] =
     useState<PreviewTransform>(DEFAULT_PREVIEW_TRANSFORM);
+  const availableTabs = useMemo(() => {
+    const valid = tabs.filter((tab): tab is Tab => TABS.includes(tab));
+    return valid.length ? valid : [...TABS];
+  }, [tabs]);
+  const availableToolbarActions = useMemo(() => {
+    const valid = toolbarActions.filter((action): action is LuminaEditorToolbarAction =>
+      DEFAULT_TOOLBAR_ACTIONS.includes(action),
+    );
+    return valid.length ? valid : [...DEFAULT_TOOLBAR_ACTIONS];
+  }, [toolbarActions]);
+  const availableFilterPresets = useMemo(() => {
+    const unique = new Set<string>();
+    const valid = filterPresets.filter((preset) => {
+      if (!preset.id || unique.has(preset.id)) return false;
+      unique.add(preset.id);
+      return true;
+    });
+    return valid.length ? valid : FILTER_PRESETS;
+  }, [filterPresets]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cropOverlayRef = useRef<HTMLDivElement | null>(null);
@@ -507,8 +536,18 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
 
   // ── Render preview whenever edits change ──────────────────────────────────
   useEffect(() => {
+    if (!availableTabs.includes(activeTab)) setActiveTab(availableTabs[0] ?? "filters");
+  }, [activeTab, availableTabs]);
+
+  useEffect(() => {
+    if (!availableFilterPresets.some((preset) => preset.id === selectedFilter)) {
+      setSelectedFilter(availableFilterPresets[0]?.id ?? "none");
+    }
+  }, [availableFilterPresets, selectedFilter]);
+
+  useEffect(() => {
     if (!file) return;
-    const ops = FILTER_PRESETS.find((f) => f.id === selectedFilter)?.ops ?? [];
+    const ops = availableFilterPresets.find((f) => f.id === selectedFilter)?.ops ?? [];
     const id = ++renderIdRef.current;
     setLoading(true);
     runChain(file, ops, adj, fx)
@@ -519,7 +558,7 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
         }
       })
       .catch(() => setLoading(false));
-  }, [file, selectedFilter, adj, fx]);
+  }, [file, selectedFilter, adj, fx, availableFilterPresets]);
 
   // ── Load image ────────────────────────────────────────────────────────────
   const handleFile = useCallback(async (f?: File) => {
@@ -548,12 +587,12 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
     img.src = url;
 
     // Build thumbnails in background
-    for (const preset of FILTER_PRESETS) {
+    for (const preset of availableFilterPresets) {
       void buildThumb(f, preset.ops).then((dataUrl) =>
         setThumbs((t) => ({ ...t, [preset.id]: dataUrl })),
       );
     }
-  }, []);
+  }, [availableFilterPresets]);
 
   // ── History ───────────────────────────────────────────────────────────────
   const pushHistory = useCallback(() => {
@@ -637,7 +676,7 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
       const extension = getFileExtension(format);
       const fileName = options.fileName ?? `lumina-export.${extension}`;
       const shouldDownload = options.download ?? autoDownload;
-      const ops = FILTER_PRESETS.find((f) => f.id === selectedFilter)?.ops ?? [];
+      const ops = availableFilterPresets.find((f) => f.id === selectedFilter)?.ops ?? [];
       const dataUrl = await runChain(file, ops, adj, fx, mimeType);
       const blob = dataUrlToBlob(dataUrl);
       const outputFile = new File([blob], fileName, { type: blob.type || mimeType });
@@ -669,7 +708,18 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
 
       return processedImage;
     },
-    [adj, autoDownload, executeFormat, file, fx, imgDims, onExecute, onExport, selectedFilter],
+    [
+      adj,
+      autoDownload,
+      executeFormat,
+      file,
+      fx,
+      imgDims,
+      onExecute,
+      onExport,
+      selectedFilter,
+      availableFilterPresets,
+    ],
   );
 
   useImperativeHandle(ref, () => ({ execute }), [execute]);
@@ -909,30 +959,36 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
         <div className={cn("headerRight")} style={sx("headerRight")}>
           {file && (
             <>
-              <button
-                className={cn("btnSm")}
-                style={sx("btnSm")}
-                onClick={doUndo}
-                disabled={histIdx <= 0}
-              >
-                ↩ Undo
-              </button>
-              <button
-                className={cn("btnPrimary")}
-                style={sx("btnPrimary")}
-                onClick={() => void handleExecute(executeFormat)}
-                disabled={exporting || loading}
-              >
-                {exporting ? "Processing…" : executeLabel}
-              </button>
-              <button
-                className={cn("btnSm")}
-                style={sx("btnSm")}
-                onClick={() => void handleExecute("jpg")}
-                disabled={exporting || loading}
-              >
-                JPG
-              </button>
+              {availableToolbarActions.includes("undo") && (
+                <button
+                  className={cn("btnSm")}
+                  style={sx("btnSm")}
+                  onClick={doUndo}
+                  disabled={histIdx <= 0}
+                >
+                  ↩ Undo
+                </button>
+              )}
+              {availableToolbarActions.includes("execute") && (
+                <button
+                  className={cn("btnPrimary")}
+                  style={sx("btnPrimary")}
+                  onClick={() => void handleExecute(executeFormat)}
+                  disabled={exporting || loading}
+                >
+                  {exporting ? "Processing…" : executeLabel}
+                </button>
+              )}
+              {availableToolbarActions.includes("exportJpg") && (
+                <button
+                  className={cn("btnSm")}
+                  style={sx("btnSm")}
+                  onClick={() => void handleExecute("jpg")}
+                  disabled={exporting || loading}
+                >
+                  JPG
+                </button>
+              )}
             </>
           )}
         </div>
@@ -1140,7 +1196,7 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
             style={{ display: "none" }}
             onChange={(e) => void handleFile(e.target.files?.[0])}
           />
-          {file && (
+          {file && availableToolbarActions.includes("loadImage") && (
             <button
               className={cn("changeBtn")}
               style={sx("changeBtn")}
@@ -1158,7 +1214,7 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
             style={sx("panel", panelLayoutStyle)}
           >
             <div className={cn("tabs")} style={sx("tabs")}>
-              {TABS.map((t) => (
+              {availableTabs.map((t) => (
                 <button
                   key={t}
                   className={cn(
@@ -1185,7 +1241,7 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
                     Applied via lumina() chainable API
                   </p>
                   <div className={cn("filterGrid")} style={sx("filterGrid", gridLayoutStyle)}>
-                    {FILTER_PRESETS.map((f) => (
+                    {availableFilterPresets.map((f) => (
                       <button
                         key={f.id}
                         className={cn(

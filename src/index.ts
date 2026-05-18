@@ -5,11 +5,14 @@ export type {
   LuminaEditorEffectsState,
   LuminaEditorExecuteOptions,
   LuminaEditorHandle,
+  LuminaEditorFilterPreset,
   LuminaEditorLayout,
   LuminaEditorOutputFormat,
   LuminaEditorProcessedImage,
   LuminaEditorProps,
   LuminaEditorStyles,
+  LuminaEditorTab,
+  LuminaEditorToolbarAction,
 } from "./components/LuminaEditor";
 export {
   LUMINA_EDITOR_BOOTSTRAP_CLASS_NAMES,

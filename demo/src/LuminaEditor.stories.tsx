@@ -4,9 +4,11 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import LuminaEditor from "lumina-editor";
 import type {
   LuminaEditorClassNames,
+  LuminaEditorFilterPreset,
   LuminaEditorHandle,
   LuminaEditorProcessedImage,
   LuminaEditorProps,
+  LuminaEditorToolbarAction,
 } from "lumina-editor";
 
 type StoryTheme = "lumina" | "tailwind" | "bootstrap" | "material" | "custom";
@@ -75,6 +77,13 @@ const formPanelStyle: CSSProperties = {
   background: "#ffffff",
   padding: 18,
 };
+const compactToolbar: LuminaEditorToolbarAction[] = ["execute", "loadImage"];
+const curatedFilters: LuminaEditorFilterPreset[] = [
+  { id: "none", label: "Original", ops: [] },
+  { id: "grayscale", label: "Grayscale", ops: [{ fn: "grayscale" }] },
+  { id: "sepia", label: "Sepia", ops: [{ fn: "sepia" }] },
+  { id: "dramatic", label: "Dramatic", ops: [{ fn: "contrast", arg: 40 }, { fn: "brightness", arg: -20 }] },
+];
 
 function ensureCdnAsset(key: keyof typeof CDN_ASSETS) {
   const asset = CDN_ASSETS[key];
@@ -198,7 +207,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Stories cover every public LuminaEditor prop: export callback, style library, class map, inline style overrides, layout, controls position, responsive behavior, sizing, panel width, root class, and root style.",
+          "Stories cover every public LuminaEditor prop: export callback, execute handler, style library, class map, inline style overrides, layout, controls position, responsive behavior, sizing, panel width, root class/style, configurable tabs, toolbar actions, and custom filter presets.",
       },
     },
   },
@@ -287,6 +296,18 @@ const meta = {
     },
     panelWidth: {
       control: "text",
+    },
+    tabs: {
+      control: false,
+      description: "Visible control tabs in order.",
+    },
+    toolbarActions: {
+      control: false,
+      description: "Header and image toolbar actions to render.",
+    },
+    filterPresets: {
+      control: false,
+      description: "Custom filter preset list.",
     },
   },
 } satisfies Meta<typeof LuminaEditor>;
@@ -405,6 +426,49 @@ export const ToolbarControlsAboveImage: Story = {
     layout: "toolbar",
     controlsPosition: "top",
     panelWidth: 320,
+  },
+  render: (args) => (
+    <ThemeFrame>
+      <LuminaEditor {...args} />
+    </ThemeFrame>
+  ),
+};
+
+export const ConfiguredTabsOnly: Story = {
+  args: {
+    fullScreen: false,
+    height: 620,
+    layout: "toolbar",
+    tabs: ["filters", "transform"],
+  },
+  render: (args) => (
+    <ThemeFrame>
+      <LuminaEditor {...args} />
+    </ThemeFrame>
+  ),
+};
+
+export const ConfiguredToolbarActionsOnly: Story = {
+  args: {
+    fullScreen: false,
+    height: 620,
+    layout: "toolbar",
+    toolbarActions: ["execute", "loadImage"],
+    executeLabel: "Run Action",
+  },
+  render: (args) => (
+    <ThemeFrame>
+      <LuminaEditor {...args} />
+    </ThemeFrame>
+  ),
+};
+
+export const CustomFilterPresetsOnly: Story = {
+  args: {
+    fullScreen: false,
+    height: 620,
+    layout: "toolbar",
+    filterPresets: curatedFilters,
   },
   render: (args) => (
     <ThemeFrame>
@@ -572,6 +636,9 @@ export const AllPropsConfigured: Story = {
     minHeight: 520,
     maxHeight: 760,
     panelWidth: 340,
+    tabs: ["filters", "transform"],
+    toolbarActions: compactToolbar,
+    filterPresets: curatedFilters,
   },
   render: (args) => (
     <ThemeFrame theme="custom">

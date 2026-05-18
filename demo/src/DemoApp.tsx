@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import LuminaEditor from "lumina-editor";
 import type {
+  LuminaEditorFilterPreset,
   LuminaEditorClassNames,
   LuminaEditorControlsPosition,
   LuminaEditorLayout,
   LuminaEditorProcessedImage,
   LuminaEditorStyleLibrary,
+  LuminaEditorToolbarAction,
 } from "lumina-editor";
 
 type DemoThemeId = "lumina" | "tailwind" | "bootstrap" | "material" | "custom";
@@ -132,6 +134,18 @@ const ACTIONS: Array<{
   },
 ];
 const DEFAULT_ACTION = ACTIONS[0] as (typeof ACTIONS)[number];
+const DEMO_TOOLBAR_ACTIONS: LuminaEditorToolbarAction[] = [
+  "undo",
+  "execute",
+  "exportJpg",
+  "loadImage",
+];
+const DEMO_FILTERS: LuminaEditorFilterPreset[] = [
+  { id: "none", label: "Original", ops: [] },
+  { id: "grayscale", label: "Grayscale", ops: [{ fn: "grayscale" }] },
+  { id: "warm", label: "Warm", ops: [{ fn: "brightness", arg: 15 }, { fn: "contrast", arg: 10 }] },
+  { id: "dramatic", label: "Dramatic", ops: [{ fn: "contrast", arg: 40 }, { fn: "brightness", arg: -20 }] },
+];
 
 function ensureCdnAsset(key: keyof typeof CDN_ASSETS) {
   const asset = CDN_ASSETS[key];
@@ -283,6 +297,9 @@ export default function DemoApp() {
           executeLabel={activeAction.executeLabel}
           executeFormat="png"
           autoDownload={activeAction.id === "download"}
+          tabs={["filters", "adjust", "transform", "effects"]}
+          toolbarActions={DEMO_TOOLBAR_ACTIONS}
+          filterPresets={DEMO_FILTERS}
           onExecute={handleProcessedImage}
         />
       </section>
