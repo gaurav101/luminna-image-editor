@@ -1,0 +1,98 @@
+{
+  "name": "lumina-editor",
+  "version": "1.0.0",
+  "description": "A typed React image editor powered by @gks101/luminajs with configurable styling adapters for Tailwind, Bootstrap, Material, or custom CSS.",
+  "type": "module",
+  "main": "dist/lumina-editor.umd.js",
+  "module": "dist/lumina-editor.es.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/lumina-editor.es.js",
+      "require": "./dist/lumina-editor.umd.js",
+      "default": "./dist/lumina-editor.es.js"
+    },
+    "./style-presets": {
+      "types": "./dist/stylePresets.d.ts",
+      "import": "./dist/stylePresets.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "keywords": [
+    "react",
+    "image-editor",
+    "image-processing",
+    "photo-editor",
+    "luminajs",
+    "tailwind",
+    "bootstrap",
+    "material-ui",
+    "typescript"
+  ],
+  "author": {
+    "name": "Gaurav"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/gaurav101/LuminaJS#readme",
+  "bugs": {
+    "url": "https://github.com/gaurav101/LuminaJS/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gaurav101/LuminaJS.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build && vite build --config vite.style-presets.config.ts",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "demo": "vite --config demo/vite.config.ts",
+    "demo:build": "vite build --config demo/vite.config.ts",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepublishOnly": "npm run lint && npm run format:check && npm run test && npm run build",
+    "storybook": "storybook dev -c demo/.storybook -p 6006",
+    "storybook:build": "storybook build -c demo/.storybook -o demo/storybook-static",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "@gks101/luminajs": ">=1.0.0",
+    "react": ">=17",
+    "react-dom": ">=17"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@storybook/addon-docs": "^10.4.0",
+    "@storybook/react-vite": "^10.4.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "jsdom": "^27.2.0",
+    "prettier": "^3.7.3",
+    "storybook": "^10.4.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.4",
+    "vite": "^8.0.13",
+    "vite-plugin-dts": "^5.0.0",
+    "vitest": "^4.0.16"
+  }
+}

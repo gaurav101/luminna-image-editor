@@ -1,0 +1,6 @@
+dist
+demo/dist
+demo/storybook-static
+node_modules
+*.tsbuildinfo
+.idea
