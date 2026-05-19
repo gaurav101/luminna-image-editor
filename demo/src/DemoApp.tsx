@@ -283,6 +283,27 @@ export default function DemoApp() {
         <strong>{actionMessage}</strong>
       </section>
 
+      <section className="demo-action-summary">
+        <span>
+          Use LuminaEditor directly in app screens or inside forms where users need to upload and
+          edit images before submit.
+        </span>
+        <strong>
+          Source:{" "}
+          <a
+            href="https://github.com/gaurav101/luminna-image-editor"
+            target="_blank"
+            rel="noreferrer"
+          >
+            github.com/gaurav101/luminna-image-editor
+          </a>{" "}
+          · Processing library:{" "}
+          <a href="https://www.npmjs.com/package/@gks101/luminajs" target="_blank" rel="noreferrer">
+            @gks101/luminajs
+          </a>
+        </strong>
+      </section>
+
       <section className={`demo-editor-frame demo-theme-${activeTheme.id}`}>
         <LuminaEditor
           key={`${activeTheme.id}-${activeLayout.id}`}
