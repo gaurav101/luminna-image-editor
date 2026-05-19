@@ -1,319 +1,74 @@
-import { useEffect, useRef, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import { useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import LuminaEditor from "lumina-editor";
 import type {
   LuminaEditorClassNames,
-  LuminaEditorFilterPreset,
   LuminaEditorHandle,
-  LuminaEditorProcessedImage,
-  LuminaEditorProps,
-  LuminaEditorToolbarAction,
+  LuminaFilterPreset,
+  LuminaEditorStyleLibrary,
 } from "lumina-editor";
 
-type StoryTheme = "lumina" | "tailwind" | "bootstrap" | "material" | "custom";
-
-const CDN_ASSETS = {
-  bootstrap: {
-    tag: "link",
-    url: "https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css",
-  },
-  tailwind: {
-    tag: "script",
-    url: "https://cdn.tailwindcss.com",
-  },
-} as const;
-
-const customClassNames: LuminaEditorClassNames = {
-  root: "demo-custom-editor",
-  header: "demo-custom-header",
-  logo: "demo-custom-logo",
-  badge: "demo-custom-badge",
-  btnSm: "demo-custom-button demo-custom-button-secondary",
-  btnPrimary: "demo-custom-button demo-custom-button-primary",
-  body: "demo-custom-body",
-  canvasArea: "demo-custom-canvas",
-  dropzone: "demo-custom-dropzone",
-  panel: "demo-custom-panel",
-  tabs: "demo-custom-tabs",
-  tab: "demo-custom-tab",
-  tabActive: "demo-custom-tab-active",
-  panelBody: "demo-custom-panel-body",
-  numInput: "demo-custom-input",
-  rangeInput: "demo-custom-range",
-  presetBtn: "demo-custom-chip",
-  applyBtn: "demo-custom-button demo-custom-button-primary demo-custom-button-block",
-  resetBtn: "demo-custom-button demo-custom-button-secondary demo-custom-button-block",
-  infoBar: "demo-custom-info",
-  infoPill: "demo-custom-pill",
-};
-
-const compactStyles = {
-  root: {
-    borderRadius: 8,
-    border: "1px solid #d9dee8",
-    overflow: "hidden",
-  },
-  canvasArea: {
-    background: "#f8fafc",
-  },
-  btnPrimary: {
-    background: "#2563eb",
-  },
-} satisfies LuminaEditorProps["styles"];
-
-const embeddedContainerStyle: CSSProperties = {
-  display: "grid",
-  gap: 16,
-  gridTemplateColumns: "minmax(0, 1fr) 320px",
-  minHeight: 620,
-  padding: 24,
-  background: "#eef2f7",
-};
-
-const formPanelStyle: CSSProperties = {
-  border: "1px solid #d9dee8",
-  borderRadius: 8,
-  background: "#ffffff",
-  padding: 18,
-};
-const compactToolbar: LuminaEditorToolbarAction[] = ["execute", "loadImage"];
-const curatedFilters: LuminaEditorFilterPreset[] = [
+const curatedFilters: LuminaFilterPreset[] = [
   { id: "none", label: "Original", ops: [] },
   { id: "grayscale", label: "Grayscale", ops: [{ fn: "grayscale" }] },
   { id: "sepia", label: "Sepia", ops: [{ fn: "sepia" }] },
   { id: "dramatic", label: "Dramatic", ops: [{ fn: "contrast", arg: 40 }, { fn: "brightness", arg: -20 }] },
 ];
 
-function ensureCdnAsset(key: keyof typeof CDN_ASSETS) {
-  const asset = CDN_ASSETS[key];
-  const id = `storybook-lumina-${key}`;
+const frameStyle: CSSProperties = {
+  border: "1px solid #d9dee8",
+  borderRadius: 8,
+  padding: 16,
+  background: "#fff",
+};
 
-  if (document.getElementById(id)) return;
+const customClassNames: LuminaEditorClassNames = {
+  root: "demo-custom-editor",
+  header: "demo-custom-header",
+  canvasArea: "demo-custom-canvas",
+  dropzone: "demo-custom-dropzone",
+  panel: "demo-custom-panel",
+  btnSm: "demo-custom-button demo-custom-button-secondary",
+  btnPrimary: "demo-custom-button demo-custom-button-primary",
+};
 
-  if (asset.tag === "link") {
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href = asset.url;
-    document.head.appendChild(link);
-    return;
-  }
-
-  const script = document.createElement("script");
-  script.id = id;
-  script.src = asset.url;
-  document.head.appendChild(script);
+function withStylePreset(
+  styleLibrary: LuminaEditorStyleLibrary | undefined,
+  classNames: LuminaEditorClassNames | undefined,
+) {
+  return { styleLibrary, classNames, inlineStyles: styleLibrary === "lumina" };
 }
 
-function ThemeFrame({ children, theme = "lumina" }: { children: ReactNode; theme?: StoryTheme }) {
-  useEffect(() => {
-    if (theme === "bootstrap" || theme === "tailwind") {
-      ensureCdnAsset(theme);
-    }
-  }, [theme]);
-
-  return <div className={`demo-editor-frame demo-theme-${theme}`}>{children}</div>;
-}
-
-function ExportLogger(dataUrl: string) {
-  console.log("LuminaEditor exported image:", dataUrl.slice(0, 64));
-}
-
-function ExecuteLogger(processedImage: LuminaEditorProcessedImage) {
-  console.log("LuminaEditor execute payload:", {
-    fileName: processedImage.fileName,
-    mimeType: processedImage.mimeType,
-    size: processedImage.blob.size,
-    dimensions: `${processedImage.width}x${processedImage.height}`,
-  });
-  processedImage.revokeObjectUrl();
-}
-
-function ObjectUrlActionExample(args: LuminaEditorProps) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const previewUrlRef = useRef<string | null>(null);
-
-  useEffect(
-    () => () => {
-      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-    },
-    [],
-  );
-
-  return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <LuminaEditor
-        {...args}
-        autoDownload={false}
-        executeLabel="Create object URL"
-        onExecute={(processedImage) => {
-          if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-          previewUrlRef.current = processedImage.objectUrl;
-          setPreviewUrl(processedImage.objectUrl);
-        }}
-      />
-      {previewUrl && (
-        <div style={formPanelStyle}>
-          <h2 style={{ marginTop: 0 }}>Processed preview</h2>
-          <img
-            src={previewUrl}
-            alt="Processed output"
-            style={{ display: "block", maxHeight: 360, maxWidth: "100%", objectFit: "contain" }}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ImperativeExecuteExample(args: LuminaEditorProps) {
+function ExecuteViaRefStory() {
   const editorRef = useRef<LuminaEditorHandle | null>(null);
-  const [message, setMessage] = useState("Load an image, then run execute() from the outer form.");
+  const [message, setMessage] = useState("Click execute after loading an image.");
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
-      <div style={formPanelStyle}>
+      <div style={frameStyle}>
         <button
           type="button"
           onClick={() => {
-            void editorRef.current
-              ?.execute({ format: "webp", fileName: "story-output.webp", download: false })
-              .then((result) => {
-                if (!result) {
-                  setMessage("No image loaded yet.");
-                  return;
-                }
-                setMessage(
-                  `execute() returned ${result.file.name}, ${result.mimeType}, ${Math.round(result.blob.size / 1024)} KB.`,
-                );
-                result.revokeObjectUrl();
-              });
+            void editorRef.current?.execute().then((result) => {
+              if (!result) {
+                setMessage("No image loaded yet.");
+                return;
+              }
+              setMessage(`Generated ${result.file.name} (${Math.round(result.blob.size / 1024)} KB).`);
+              result.revokeObjectUrl();
+            });
           }}
         >
-          Run ref.execute()
+          Run execute()
         </button>
         <span style={{ marginLeft: 12 }}>{message}</span>
       </div>
-      <LuminaEditor ref={editorRef} {...args} />
+
+      <LuminaEditor ref={editorRef} filterPresets={curatedFilters}>
+        <LuminaEditor.ToolbarLayout />
+      </LuminaEditor>
     </div>
-  );
-}
-
-function ProfileImageFormExample(args: LuminaEditorProps) {
-  const editorRef = useRef<LuminaEditorHandle | null>(null);
-  const editorHostRef = useRef<HTMLDivElement | null>(null);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
-
-  useEffect(() => {
-    if (!profileImageFile || !editorHostRef.current) return;
-    const hydrateEditorFile = () => {
-      const editorFileInput = editorHostRef.current?.querySelector<HTMLInputElement>(
-        'input[type="file"][accept="image/*"]',
-      );
-      if (!editorFileInput) return false;
-      try {
-        const transfer = new DataTransfer();
-        transfer.items.add(profileImageFile);
-        editorFileInput.files = transfer.files;
-        editorFileInput.dispatchEvent(new Event("input", { bubbles: true }));
-        editorFileInput.dispatchEvent(new Event("change", { bubbles: true }));
-        return true;
-      } catch (error) {
-        console.warn("Could not auto-load profile image into LuminaEditor:", error);
-        return false;
-      }
-    };
-
-    if (!hydrateEditorFile()) {
-      const timer = window.setTimeout(() => {
-        hydrateEditorFile();
-      }, 50);
-      return () => window.clearTimeout(timer);
-    }
-  }, [profileImageFile]);
-
-  return (
-    <form
-      style={{
-        display: "grid",
-        gap: 14,
-        padding: 16,
-        background: "#ffffff",
-        border: "1px solid #d9dee8",
-        borderRadius: 10,
-      }}
-      onSubmit={(event) => {
-        event.preventDefault();
-        void editorRef.current
-          ?.execute({ format: "png", fileName: "profile-image.png", download: false })
-          .then((processedImage) => {
-            console.log("Profile form submit payload:", {
-              name,
-              email,
-              profileImage: processedImage
-                ? {
-                    fileName: processedImage.fileName,
-                    mimeType: processedImage.mimeType,
-                    size: processedImage.blob.size,
-                    width: processedImage.width,
-                    height: processedImage.height,
-                  }
-                : null,
-            });
-            processedImage?.revokeObjectUrl();
-          });
-      }}
-    >
-      <div style={{ display: "grid", gap: 10 }}>
-        <label style={{ display: "grid", gap: 6 }}>
-          <span>Name</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" />
-        </label>
-        <label style={{ display: "grid", gap: 6 }}>
-          <span>Email</span>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="jane@example.com"
-          />
-        </label>
-        <label style={{ display: "grid", gap: 6 }}>
-          <span>Profile Image</span>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setProfileImageFile(e.target.files?.[0] ?? null)}
-          />
-        </label>
-      </div>
-
-      {profileImageFile && (
-        <div ref={editorHostRef}>
-          <LuminaEditor
-            ref={editorRef}
-            {...args}
-            fullScreen={false}
-            height={680}
-            minHeight={620}
-            layout="sidebar"
-            controlsPosition="bottom"
-            responsive
-            tabs={["filters", "adjust", "transform", "effects"]}
-            toolbarActions={["undo", "execute", "exportJpg", "loadImage"]}
-            executeLabel="Apply Profile Edit"
-            autoDownload={false}
-          />
-        </div>
-      )}
-
-      <button type="submit" style={{ width: "fit-content" }}>
-        Submit Profile Form
-      </button>
-    </form>
   );
 }
 
@@ -324,107 +79,24 @@ const meta = {
     docs: {
       description: {
         component:
-          "Stories cover every public LuminaEditor prop: export callback, execute handler, style library, class map, inline style overrides, layout, controls position, responsive behavior, sizing, panel width, root class/style, configurable tabs, toolbar actions, and custom filter presets.",
+          "Composition-first LuminaEditor API with provider state, atomic sub-components, and optional preset layouts.",
       },
     },
   },
-  args: {
-    onExport: ExportLogger,
-    onExecute: ExecuteLogger,
-    executeLabel: "Process PNG",
-    executeFormat: "png",
-    autoDownload: true,
-    styleLibrary: "lumina",
-    inlineStyles: true,
-    layout: "sidebar",
-    controlsPosition: "bottom",
-    responsive: true,
-    mobileBreakpoint: 760,
-    fullScreen: true,
-    panelWidth: 290,
-  },
   argTypes: {
-    onExport: {
-      control: false,
-      description: "Called with the exported image data URL after export.",
-    },
-    onExecute: {
-      control: false,
-      description:
-        "Called with the processed image payload. Use it to upload, download, preview, or store the result.",
-    },
-    executeLabel: {
-      control: "text",
-    },
-    executeFormat: {
-      control: "select",
-      options: ["png", "jpg", "jpeg", "webp"],
-    },
-    autoDownload: {
-      control: "boolean",
-    },
     styleLibrary: {
       control: "select",
       options: ["lumina", "tailwind", "bootstrap", "material", "none"],
     },
-    classNames: {
-      control: "object",
-      description: "Slot class overrides for app-owned CSS or external CSS libraries.",
-    },
-    styles: {
-      control: "object",
-      description: "Inline style overrides per LuminaEditor slot.",
-    },
-    inlineStyles: {
-      control: "boolean",
-    },
-    className: {
-      control: "text",
-    },
-    style: {
-      control: "object",
-      description: "Inline style for the root element.",
-    },
-    layout: {
-      control: "inline-radio",
-      options: ["sidebar", "toolbar"],
-    },
-    controlsPosition: {
-      control: "inline-radio",
-      options: ["top", "bottom"],
-    },
-    responsive: {
-      control: "boolean",
-    },
-    mobileBreakpoint: {
-      control: { type: "number", min: 320, max: 1280, step: 20 },
-    },
-    fullScreen: {
-      control: "boolean",
-    },
-    height: {
-      control: "text",
-    },
-    minHeight: {
-      control: "text",
-    },
-    maxHeight: {
-      control: "text",
-    },
-    panelWidth: {
-      control: "text",
-    },
-    tabs: {
-      control: false,
-      description: "Visible control tabs in order.",
-    },
-    toolbarActions: {
-      control: false,
-      description: "Header and image toolbar actions to render.",
-    },
+    classNames: { control: false },
+    inlineStyles: { control: "boolean" },
     filterPresets: {
       control: false,
-      description: "Custom filter preset list.",
+      description: "Custom filter presets for thumbnails and applied operations.",
+    },
+    outputMimeType: {
+      control: "select",
+      options: ["image/png", "image/jpeg", "image/webp"],
     },
   },
 } satisfies Meta<typeof LuminaEditor>;
@@ -432,346 +104,72 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Playground: Story = {
+export const SidebarPresetLayout: Story = {
+  args: withStylePreset("lumina", undefined),
   render: (args) => (
-    <ThemeFrame theme={(args.styleLibrary as StoryTheme) ?? "lumina"}>
-      <LuminaEditor {...args} />
-    </ThemeFrame>
+    <LuminaEditor {...args} filterPresets={curatedFilters}>
+      <LuminaEditor.SidebarLayout />
+    </LuminaEditor>
   ),
 };
 
-export const DefaultFullScreenSidebar: Story = {
-  args: {
-    styleLibrary: "lumina",
-    inlineStyles: true,
-    layout: "sidebar",
-    fullScreen: true,
-  },
+export const ToolbarPresetLayout: Story = {
+  args: withStylePreset("lumina", undefined),
   render: (args) => (
-    <ThemeFrame>
-      <LuminaEditor {...args} />
-    </ThemeFrame>
+    <LuminaEditor {...args} filterPresets={curatedFilters}>
+      <LuminaEditor.ToolbarLayout />
+    </LuminaEditor>
   ),
 };
 
-export const EmbeddedInAForm: Story = {
-  args: {
-    fullScreen: false,
-    height: 520,
-    layout: "toolbar",
-    controlsPosition: "bottom",
-    styles: compactStyles,
-  },
+export const FullyComposedLayout: Story = {
+  args: withStylePreset("lumina", undefined),
   render: (args) => (
-    <div style={embeddedContainerStyle}>
-      <LuminaEditor {...args} />
-      <aside style={formPanelStyle}>
-        <h2 style={{ marginTop: 0 }}>Product form</h2>
-        <label>
-          Title
-          <input
-            style={{ display: "block", marginTop: 6, width: "100%" }}
-            defaultValue="Hero image"
-          />
-        </label>
-        <label style={{ display: "block", marginTop: 14 }}>
-          Description
-          <textarea
-            style={{ display: "block", marginTop: 6, minHeight: 120, width: "100%" }}
-            defaultValue="The editor can sit inside a form without taking the full screen."
-          />
-        </label>
-      </aside>
-    </div>
+    <LuminaEditor {...args} filterPresets={curatedFilters}>
+      <LuminaEditor.Header style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <LuminaEditor.Logo label="Custom Story Layout" />
+        <LuminaEditor.ActionButton action="undo" />
+        <LuminaEditor.ActionButton action="redo" />
+        <LuminaEditor.ExecuteButton>Execute</LuminaEditor.ExecuteButton>
+      </LuminaEditor.Header>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 12 }}>
+        <LuminaEditor.CanvasArea />
+        <LuminaEditor.Toolbar orientation="vertical">
+          <LuminaEditor.FilterPresets />
+          <LuminaEditor.Adjustments />
+        </LuminaEditor.Toolbar>
+      </div>
+    </LuminaEditor>
   ),
 };
 
-export const ExecuteCreatesObjectUrlPreview: Story = {
-  args: {
-    fullScreen: false,
-    height: 620,
-    layout: "toolbar",
-    controlsPosition: "bottom",
-    autoDownload: false,
-    executeFormat: "png",
-  },
-  render: (args) => (
-    <ThemeFrame>
-      <ObjectUrlActionExample {...args} />
-    </ThemeFrame>
-  ),
+export const ExecuteViaImperativeRef: Story = {
+  render: () => <ExecuteViaRefStory />,
 };
 
-export const ExecuteSimulatesUpload: Story = {
-  args: {
-    fullScreen: false,
-    height: 620,
-    layout: "toolbar",
-    executeLabel: "Upload processed image",
-    autoDownload: false,
-    onExecute: async (processedImage) => {
-      await new Promise((resolve) => window.setTimeout(resolve, 500));
-      console.log("Simulated upload payload:", processedImage.file);
-      processedImage.revokeObjectUrl();
-    },
-  },
+export const BootstrapPreset: Story = {
+  args: withStylePreset("bootstrap", undefined),
   render: (args) => (
-    <ThemeFrame>
-      <LuminaEditor {...args} />
-    </ThemeFrame>
-  ),
-};
-
-export const ImperativeExecuteRef: Story = {
-  args: {
-    fullScreen: false,
-    height: 620,
-    layout: "toolbar",
-    autoDownload: false,
-  },
-  render: (args) => (
-    <ThemeFrame>
-      <ImperativeExecuteExample {...args} />
-    </ThemeFrame>
-  ),
-};
-
-export const ToolbarControlsAboveImage: Story = {
-  args: {
-    fullScreen: false,
-    height: 620,
-    layout: "toolbar",
-    controlsPosition: "top",
-    panelWidth: 320,
-  },
-  render: (args) => (
-    <ThemeFrame>
-      <LuminaEditor {...args} />
-    </ThemeFrame>
-  ),
-};
-
-export const ConfiguredTabsOnly: Story = {
-  args: {
-    fullScreen: false,
-    height: 620,
-    layout: "toolbar",
-    tabs: ["filters", "transform"],
-  },
-  render: (args) => (
-    <ThemeFrame>
-      <LuminaEditor {...args} />
-    </ThemeFrame>
-  ),
-};
-
-export const ConfiguredToolbarActionsOnly: Story = {
-  args: {
-    fullScreen: false,
-    height: 620,
-    layout: "toolbar",
-    toolbarActions: ["execute", "loadImage"],
-    executeLabel: "Run Action",
-  },
-  render: (args) => (
-    <ThemeFrame>
-      <LuminaEditor {...args} />
-    </ThemeFrame>
-  ),
-};
-
-export const CustomFilterPresetsOnly: Story = {
-  args: {
-    fullScreen: false,
-    height: 620,
-    layout: "toolbar",
-    filterPresets: curatedFilters,
-  },
-  render: (args) => (
-    <ThemeFrame>
-      <LuminaEditor {...args} />
-    </ThemeFrame>
-  ),
-};
-
-export const ToolbarControlsBelowImage: Story = {
-  args: {
-    fullScreen: false,
-    height: 620,
-    layout: "toolbar",
-    controlsPosition: "bottom",
-  },
-  render: (args) => (
-    <ThemeFrame>
-      <LuminaEditor {...args} />
-    </ThemeFrame>
-  ),
-};
-
-export const NarrowSidebarPanel: Story = {
-  args: {
-    fullScreen: false,
-    height: 600,
-    layout: "sidebar",
-    panelWidth: 240,
-  },
-  render: (args) => (
-    <ThemeFrame>
-      <LuminaEditor {...args} />
-    </ThemeFrame>
-  ),
-};
-
-export const ResponsiveMobileMode: Story = {
-  args: {
-    fullScreen: false,
-    height: "auto",
-    minHeight: 620,
-    layout: "sidebar",
-    responsive: true,
-    mobileBreakpoint: 1200,
-  },
-  parameters: {
-    viewport: {
-      defaultViewport: "mobile1",
-    },
-  },
-  render: (args) => (
-    <ThemeFrame>
-      <LuminaEditor {...args} />
-    </ThemeFrame>
+    <LuminaEditor {...args} filterPresets={curatedFilters}>
+      <LuminaEditor.ToolbarLayout />
+    </LuminaEditor>
   ),
 };
 
 export const TailwindPreset: Story = {
-  args: {
-    styleLibrary: "tailwind",
-    inlineStyles: false,
-    fullScreen: false,
-    height: 620,
-    layout: "toolbar",
-  },
+  args: withStylePreset("tailwind", undefined),
   render: (args) => (
-    <ThemeFrame theme="tailwind">
-      <LuminaEditor {...args} />
-    </ThemeFrame>
+    <LuminaEditor {...args} filterPresets={curatedFilters}>
+      <LuminaEditor.ToolbarLayout />
+    </LuminaEditor>
   ),
 };
 
-export const BootstrapPreset: Story = {
-  args: {
-    styleLibrary: "bootstrap",
-    inlineStyles: false,
-    fullScreen: false,
-    height: 620,
-    layout: "sidebar",
-  },
+export const CustomClassMap: Story = {
+  args: withStylePreset("none", customClassNames),
   render: (args) => (
-    <ThemeFrame theme="bootstrap">
-      <LuminaEditor {...args} />
-    </ThemeFrame>
-  ),
-};
-
-export const MaterialClassPreset: Story = {
-  args: {
-    styleLibrary: "material",
-    inlineStyles: false,
-    fullScreen: false,
-    height: 620,
-    layout: "toolbar",
-    controlsPosition: "top",
-  },
-  render: (args) => (
-    <ThemeFrame theme="material">
-      <LuminaEditor {...args} />
-    </ThemeFrame>
-  ),
-};
-
-export const CustomClassNames: Story = {
-  args: {
-    styleLibrary: "none",
-    inlineStyles: false,
-    classNames: customClassNames,
-    fullScreen: false,
-    height: 620,
-    layout: "toolbar",
-    controlsPosition: "bottom",
-  },
-  render: (args) => (
-    <ThemeFrame theme="custom">
-      <LuminaEditor {...args} />
-    </ThemeFrame>
-  ),
-};
-
-export const InlineStyleOverrides: Story = {
-  args: {
-    fullScreen: false,
-    height: 560,
-    minHeight: 480,
-    maxHeight: 720,
-    className: "storybook-inline-style-example",
-    style: {
-      borderRadius: 12,
-      overflow: "hidden",
-    },
-    styles: {
-      root: { background: "#ffffff", color: "#111827" },
-      header: { background: "#f8fafc" },
-      canvasArea: { background: "#eef2ff" },
-      btnPrimary: { background: "#059669" },
-    },
-  },
-  render: (args) => (
-    <ThemeFrame>
-      <LuminaEditor {...args} />
-    </ThemeFrame>
-  ),
-};
-
-export const AllPropsConfigured: Story = {
-  args: {
-    onExport: ExportLogger,
-    onExecute: ExecuteLogger,
-    executeLabel: "Run custom action",
-    executeFormat: "webp",
-    autoDownload: false,
-    styleLibrary: "none",
-    classNames: customClassNames,
-    styles: compactStyles,
-    inlineStyles: true,
-    className: "storybook-all-props",
-    style: { boxShadow: "0 14px 40px rgba(15, 23, 42, 0.18)" },
-    layout: "toolbar",
-    controlsPosition: "top",
-    responsive: true,
-    mobileBreakpoint: 900,
-    fullScreen: false,
-    height: 640,
-    minHeight: 520,
-    maxHeight: 760,
-    panelWidth: 340,
-    tabs: ["filters", "transform"],
-    toolbarActions: compactToolbar,
-    filterPresets: curatedFilters,
-  },
-  render: (args) => (
-    <ThemeFrame theme="custom">
-      <LuminaEditor {...args} />
-    </ThemeFrame>
-  ),
-};
-
-export const ProfileImageFormFlow: Story = {
-  args: {
-    styleLibrary: "lumina",
-    inlineStyles: true,
-  },
-  render: (args) => (
-    <ThemeFrame>
-      <ProfileImageFormExample {...args} />
-    </ThemeFrame>
+    <LuminaEditor {...args} filterPresets={curatedFilters}>
+      <LuminaEditor.SidebarLayout />
+    </LuminaEditor>
   ),
 };

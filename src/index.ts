@@ -1,19 +1,13 @@
-export { default } from "./components/LuminaEditor";
+export { default } from "./LuminaEditor";
+export type { LuminaEditorHandle, LuminaEditorProps, LuminaFilterPreset } from "./LuminaEditor";
 export type {
-  LuminaEditorAdjustmentState,
-  LuminaEditorControlsPosition,
-  LuminaEditorEffectsState,
-  LuminaEditorExecuteOptions,
-  LuminaEditorHandle,
-  LuminaEditorFilterPreset,
-  LuminaEditorLayout,
-  LuminaEditorOutputFormat,
-  LuminaEditorProcessedImage,
-  LuminaEditorProps,
-  LuminaEditorStyles,
-  LuminaEditorTab,
-  LuminaEditorToolbarAction,
-} from "./components/LuminaEditor";
+  LuminaAdjustmentState,
+  LuminaEditorConfig,
+  LuminaEditorContextValue,
+  LuminaExecuteResult,
+  LuminaFilterPreset as LuminaContextFilterPreset,
+  LuminaTransformState,
+} from "./context/LuminaEditorContext";
 export {
   LUMINA_EDITOR_BOOTSTRAP_CLASS_NAMES,
   LUMINA_EDITOR_CLASS_PRESETS,

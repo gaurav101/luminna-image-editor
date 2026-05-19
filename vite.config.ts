@@ -8,7 +8,8 @@ export default defineConfig({
     react(),
     dts({
       entryRoot: "src",
-      include: ["src/index.ts", "src/components/LuminaEditor.tsx", "src/stylePresets.ts"],
+      include: ["src/**/*.ts", "src/**/*.tsx"],
+      exclude: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/__tests__/**"],
       insertTypesEntry: true,
     }),
   ],
