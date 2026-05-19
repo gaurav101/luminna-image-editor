@@ -162,6 +162,7 @@ interface NotificationState {
 }
 
 type CropHandle = "move" | "nw" | "ne" | "sw" | "se";
+type EditTab = Exclude<Tab, "filters">;
 
 type AdjustmentState = LuminaEditorAdjustmentState;
 type EffectsState = LuminaEditorEffectsState;
@@ -394,6 +395,7 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [previewTransform, setPreviewTransform] =
     useState<PreviewTransform>(DEFAULT_PREVIEW_TRANSFORM);
+  const [filterStartIndex, setFilterStartIndex] = useState(0);
   const availableTabs = useMemo(() => {
     const valid = tabs.filter((tab): tab is Tab => TABS.includes(tab));
     return valid.length ? valid : [...TABS];
@@ -413,6 +415,16 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
     });
     return valid.length ? valid : FILTER_PRESETS;
   }, [filterPresets]);
+  const availableEditTabs = useMemo(
+    () => availableTabs.filter((tab): tab is EditTab => tab !== "filters"),
+    [availableTabs],
+  );
+  const activeEditTab = useMemo<EditTab | null>(() => {
+    if (activeTab !== "filters") return activeTab;
+    return availableEditTabs[0] ?? null;
+  }, [activeTab, availableEditTabs]);
+  const activePrimaryTab: "filters" | "edit" =
+    activeTab === "filters" && availableTabs.includes("filters") ? "filters" : "edit";
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cropOverlayRef = useRef<HTMLDivElement | null>(null);
@@ -512,6 +524,14 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
   const gridLayoutStyle: CSSProperties = {
     gridTemplateColumns: isToolbarLayout ? "repeat(auto-fit, minmax(118px, 1fr))" : undefined,
   };
+  const filterVisibleCount = isCompactViewport ? 3 : isToolbarLayout ? 5 : 4;
+  const maxFilterStart = Math.max(0, availableFilterPresets.length - filterVisibleCount);
+  const canGoFilterPrev = filterStartIndex > 0;
+  const canGoFilterNext = filterStartIndex < maxFilterStart;
+  const visibleFilterPresets = availableFilterPresets.slice(
+    filterStartIndex,
+    filterStartIndex + filterVisibleCount,
+  );
   const cropHandleSize = isCompactViewport ? 22 : 14;
   const cropHandleOffset = cropHandleSize / 2;
 
@@ -538,12 +558,20 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
   useEffect(() => {
     if (!availableTabs.includes(activeTab)) setActiveTab(availableTabs[0] ?? "filters");
   }, [activeTab, availableTabs]);
+  useEffect(() => {
+    if (activePrimaryTab === "edit" && !activeEditTab && availableTabs.includes("filters")) {
+      setActiveTab("filters");
+    }
+  }, [activeEditTab, activePrimaryTab, availableTabs]);
 
   useEffect(() => {
     if (!availableFilterPresets.some((preset) => preset.id === selectedFilter)) {
       setSelectedFilter(availableFilterPresets[0]?.id ?? "none");
     }
   }, [availableFilterPresets, selectedFilter]);
+  useEffect(() => {
+    setFilterStartIndex((current) => Math.min(current, maxFilterStart));
+  }, [maxFilterStart]);
 
   useEffect(() => {
     if (!file) return;
@@ -1214,25 +1242,37 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
             style={sx("panel", panelLayoutStyle)}
           >
             <div className={cn("tabs")} style={sx("tabs")}>
-              {availableTabs.map((t) => (
+              {availableTabs.includes("filters") && (
                 <button
-                  key={t}
                   className={cn(
                     "tab",
-                    activeTab === t && "is-active",
-                    activeTab === t && classes.tabActive,
+                    activePrimaryTab === "filters" && "is-active",
+                    activePrimaryTab === "filters" && classes.tabActive,
                   )}
-                  style={sxVariant("tab", "tabActive", activeTab === t)}
-                  onClick={() => setActiveTab(t)}
+                  style={sxVariant("tab", "tabActive", activePrimaryTab === "filters")}
+                  onClick={() => setActiveTab("filters")}
                 >
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                  Filters
                 </button>
-              ))}
+              )}
+              {availableEditTabs.length > 0 && (
+                <button
+                  className={cn(
+                    "tab",
+                    activePrimaryTab === "edit" && "is-active",
+                    activePrimaryTab === "edit" && classes.tabActive,
+                  )}
+                  style={sxVariant("tab", "tabActive", activePrimaryTab === "edit")}
+                  onClick={() => setActiveTab(availableEditTabs[0] ?? "adjust")}
+                >
+                  Edit
+                </button>
+              )}
             </div>
 
             <div className={cn("panelBody")} style={sx("panelBody", panelBodyLayoutStyle)}>
               {/* ─── FILTERS ─── */}
-              {activeTab === "filters" && (
+              {activePrimaryTab === "filters" && (
                 <>
                   <p className={cn("plabel")} style={sx("plabel")}>
                     Presets
@@ -1240,42 +1280,97 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
                   <p className={cn("hint")} style={sx("hint")}>
                     Applied via lumina() chainable API
                   </p>
-                  <div className={cn("filterGrid")} style={sx("filterGrid", gridLayoutStyle)}>
-                    {availableFilterPresets.map((f) => (
-                      <button
-                        key={f.id}
-                        className={cn(
-                          "fThumb",
-                          selectedFilter === f.id && "is-selected",
-                          selectedFilter === f.id && classes.fThumbSel,
-                        )}
-                        style={sxVariant("fThumb", "fThumbSel", selectedFilter === f.id)}
-                        onClick={() => {
-                          setSelectedFilter(f.id);
-                          pushHistory();
-                        }}
-                      >
-                        {thumbs[f.id] ? (
-                          <img
-                            className={cn("fThumbImg")}
-                            src={thumbs[f.id]}
-                            alt={f.label}
-                            style={sx("fThumbImg")}
-                          />
-                        ) : (
-                          <div className={cn("fThumbPh")} style={sx("fThumbPh")} />
-                        )}
-                        <span className={cn("fLbl")} style={sx("fLbl")}>
-                          {f.label}
-                        </span>
-                      </button>
-                    ))}
+                  <div style={{ display: "grid", gridTemplateColumns: "28px minmax(0, 1fr) 28px", alignItems: "center", gap: 6, width: "100%" }}>
+                    <button
+                      type="button"
+                      className={cn("presetBtn")}
+                      style={sx("presetBtn", { minWidth: 28, padding: "4px 0" })}
+                      onClick={() => setFilterStartIndex((start) => Math.max(0, start - 1))}
+                      disabled={!canGoFilterPrev}
+                    >
+                      {"<"}
+                    </button>
+                    <div
+                      className={cn("filterGrid")}
+                      style={sx("filterGrid", {
+                        ...gridLayoutStyle,
+                        width: "100%",
+                        gridTemplateColumns: `repeat(${Math.min(filterVisibleCount, availableFilterPresets.length)}, minmax(0, 1fr))`,
+                      })}
+                    >
+                      {visibleFilterPresets.map((f) => (
+                          <button
+                            type="button"
+                            key={f.id}
+                            className={cn(
+                              "fThumb",
+                              selectedFilter === f.id && "is-selected",
+                              selectedFilter === f.id && classes.fThumbSel,
+                            )}
+                            style={sxVariant("fThumb", "fThumbSel", selectedFilter === f.id)}
+                            onClick={() => {
+                              setSelectedFilter(f.id);
+                              pushHistory();
+                            }}
+                          >
+                            {thumbs[f.id] ? (
+                              <img
+                                className={cn("fThumbImg")}
+                                src={thumbs[f.id]}
+                                alt={f.label}
+                                style={sx("fThumbImg")}
+                              />
+                            ) : (
+                              <div className={cn("fThumbPh")} style={sx("fThumbPh")} />
+                            )}
+                            <span className={cn("fLbl")} style={sx("fLbl")}>
+                              {f.label}
+                            </span>
+                          </button>
+                        ))}
+                    </div>
+                    <button
+                      type="button"
+                      className={cn("presetBtn")}
+                      style={sx("presetBtn", { minWidth: 28, padding: "4px 0" })}
+                      onClick={() =>
+                        setFilterStartIndex((start) => Math.min(maxFilterStart, start + 1))
+                      }
+                      disabled={!canGoFilterNext}
+                    >
+                      {">"}
+                    </button>
                   </div>
                 </>
               )}
 
+              {activePrimaryTab === "edit" && availableEditTabs.length > 0 && (
+                <div style={{ display: "grid", gap: 6, marginBottom: 10, width: "100%", gridTemplateColumns: `repeat(${availableEditTabs.length}, minmax(0, 1fr))` }}>
+                  {availableEditTabs.map((t) => (
+                    <button
+                      type="button"
+                      key={t}
+                      className={cn(
+                        "presetBtn",
+                        activeTab === t && "is-active",
+                        activeTab === t && classes.tabActive,
+                      )}
+                      style={sxVariant("presetBtn", "tabActive", activeTab === t, {
+                        fontSize: 10,
+                        width: "100%",
+                        textAlign: "center",
+                        padding: "6px 0",
+                      })}
+                      onClick={() => setActiveTab(t)}
+                    >
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* ─── ADJUST ─── */}
-              {activeTab === "adjust" && (
+              {activePrimaryTab === "edit" && activeTab === "adjust" && (
                 <>
                   <p className={cn("plabel")} style={sx("plabel")}>
                     Adjustments
@@ -1333,7 +1428,7 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
               )}
 
               {/* ─── TRANSFORM ─── */}
-              {activeTab === "transform" && (
+              {activePrimaryTab === "edit" && activeTab === "transform" && (
                 <>
                   <p className={cn("plabel")} style={sx("plabel")}>
                     Crop
@@ -1475,7 +1570,7 @@ const LuminaEditor = forwardRef<LuminaEditorHandle, LuminaEditorProps>(function 
               )}
 
               {/* ─── EFFECTS ─── */}
-              {activeTab === "effects" && (
+              {activePrimaryTab === "edit" && activeTab === "effects" && (
                 <>
                   <p className={cn("plabel")} style={sx("plabel")}>
                     Convolution Effects
@@ -1768,7 +1863,7 @@ const S: Record<LuminaEditorStyleSlot, CSSProperties> = {
     borderBottom: "2px solid transparent",
   },
   tabActive: { color: "#a59df5", borderBottom: "2px solid #7C6FF7" },
-  panelBody: { flex: 1, overflowY: "auto", padding: 12 },
+  panelBody: { flex: 1, overflowY: "auto", padding: 12, width: "100%", minWidth: 0, boxSizing: "border-box" },
   plabel: {
     fontSize: 10,
     fontWeight: 700,

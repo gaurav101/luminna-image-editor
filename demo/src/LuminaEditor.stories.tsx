@@ -200,6 +200,123 @@ function ImperativeExecuteExample(args: LuminaEditorProps) {
   );
 }
 
+function ProfileImageFormExample(args: LuminaEditorProps) {
+  const editorRef = useRef<LuminaEditorHandle | null>(null);
+  const editorHostRef = useRef<HTMLDivElement | null>(null);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    if (!profileImageFile || !editorHostRef.current) return;
+    const hydrateEditorFile = () => {
+      const editorFileInput = editorHostRef.current?.querySelector<HTMLInputElement>(
+        'input[type="file"][accept="image/*"]',
+      );
+      if (!editorFileInput) return false;
+      try {
+        const transfer = new DataTransfer();
+        transfer.items.add(profileImageFile);
+        editorFileInput.files = transfer.files;
+        editorFileInput.dispatchEvent(new Event("input", { bubbles: true }));
+        editorFileInput.dispatchEvent(new Event("change", { bubbles: true }));
+        return true;
+      } catch (error) {
+        console.warn("Could not auto-load profile image into LuminaEditor:", error);
+        return false;
+      }
+    };
+
+    if (!hydrateEditorFile()) {
+      const timer = window.setTimeout(() => {
+        hydrateEditorFile();
+      }, 50);
+      return () => window.clearTimeout(timer);
+    }
+  }, [profileImageFile]);
+
+  return (
+    <form
+      style={{
+        display: "grid",
+        gap: 14,
+        padding: 16,
+        background: "#ffffff",
+        border: "1px solid #d9dee8",
+        borderRadius: 10,
+      }}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void editorRef.current
+          ?.execute({ format: "png", fileName: "profile-image.png", download: false })
+          .then((processedImage) => {
+            console.log("Profile form submit payload:", {
+              name,
+              email,
+              profileImage: processedImage
+                ? {
+                    fileName: processedImage.fileName,
+                    mimeType: processedImage.mimeType,
+                    size: processedImage.blob.size,
+                    width: processedImage.width,
+                    height: processedImage.height,
+                  }
+                : null,
+            });
+            processedImage?.revokeObjectUrl();
+          });
+      }}
+    >
+      <div style={{ display: "grid", gap: 10 }}>
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Name</span>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" />
+        </label>
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Email</span>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="jane@example.com"
+          />
+        </label>
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Profile Image</span>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setProfileImageFile(e.target.files?.[0] ?? null)}
+          />
+        </label>
+      </div>
+
+      {profileImageFile && (
+        <div ref={editorHostRef}>
+          <LuminaEditor
+            ref={editorRef}
+            {...args}
+            fullScreen={false}
+            height={680}
+            minHeight={620}
+            layout="sidebar"
+            controlsPosition="bottom"
+            responsive
+            tabs={["filters", "adjust", "transform", "effects"]}
+            toolbarActions={["undo", "execute", "exportJpg", "loadImage"]}
+            executeLabel="Apply Profile Edit"
+            autoDownload={false}
+          />
+        </div>
+      )}
+
+      <button type="submit" style={{ width: "fit-content" }}>
+        Submit Profile Form
+      </button>
+    </form>
+  );
+}
+
 const meta = {
   title: "Demo/LuminaEditor",
   component: LuminaEditor,
@@ -643,6 +760,18 @@ export const AllPropsConfigured: Story = {
   render: (args) => (
     <ThemeFrame theme="custom">
       <LuminaEditor {...args} />
+    </ThemeFrame>
+  ),
+};
+
+export const ProfileImageFormFlow: Story = {
+  args: {
+    styleLibrary: "lumina",
+    inlineStyles: true,
+  },
+  render: (args) => (
+    <ThemeFrame>
+      <ProfileImageFormExample {...args} />
     </ThemeFrame>
   ),
 };
